@@ -1,0 +1,52 @@
+# ===========================================
+# TruthLens - Fake/Real Image Classifier
+# ===========================================
+
+# Large Data Files (Download separately)
+dataset/data.npz
+user_input/test.npz
+user_input/*.jpg
+user_input/*.png
+
+# Raw Dataset (Too large for Git)
+Data/
+
+# Processed Images (Generated)
+processed/
+
+# Model Weights (Use Git LFS or download link)
+# model/cnn_model_weights.h5
+
+# Jupyter Notebook Checkpoints
+.ipynb_checkpoints/
+
+# Python Cache
+__pycache__/
+*.pyc
+*.pyo
+*.pyd
+.Python
+*.so
+
+# Virtual Environment
+venv/
+env/
+.env
+
+# IDE Settings
+.vscode/
+.idea/
+*.swp
+*.swo
+
+# OS Files
+.DS_Store
+Thumbs.db
+
+# Streamlit
+.streamlit/secrets.toml
+
+# Temporary Files
+*.tmp
+*.temp
+*.log

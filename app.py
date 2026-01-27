@@ -1,6 +1,6 @@
 """
 🔍 TruthLens - AI-Powered Image Authenticity Detector
-Detect fake/AI-generated images with advanced deep learning and Gabor filter texture analysis.
+A modern web application for detecting fake/AI-generated images
 """
 
 import streamlit as st
@@ -8,10 +8,11 @@ import numpy as np
 import cv2
 from PIL import Image
 import plotly.graph_objects as go
-import plotly.express as px
 from tensorflow.keras.models import load_model
 import time
 import os
+import base64
+from datetime import datetime
 
 from utils import (
     preprocess_image, 
@@ -25,187 +26,619 @@ from utils import (
 # ============================================
 # PAGE CONFIGURATION
 # ============================================
+# Load logo for favicon
+logo_icon = Image.open("logo.png") if os.path.exists("logo.png") else "🔍"
+
 st.set_page_config(
-    page_title="TruthLens | Fake Image Detector",
-    page_icon="🔍",
+    page_title="TruthLens | AI Fake Image Detector",
+    page_icon=logo_icon,
     layout="wide",
     initial_sidebar_state="expanded"
 )
 
 # ============================================
-# CUSTOM CSS FOR AMAZING UI
+# UTILITY FUNCTIONS
+# ============================================
+def get_logo_base64():
+    """Load logo and convert to base64."""
+    logo_path = "logo.png"
+    if os.path.exists(logo_path):
+        with open(logo_path, "rb") as f:
+            return base64.b64encode(f.read()).decode()
+    return None
+
+def get_image_base64(image_path):
+    """Convert image to base64."""
+    if os.path.exists(image_path):
+        with open(image_path, "rb") as f:
+            return base64.b64encode(f.read()).decode()
+    return None
+
+LOGO_BASE64 = get_logo_base64()
+
+# ============================================
+# MODERN CSS STYLING
 # ============================================
 st.markdown("""
 <style>
-    /* Import Google Fonts */
-    @import url('https://fonts.googleapis.com/css2?family=Poppins:wght@300;400;500;600;700&display=swap');
+    /* ===== GOOGLE FONTS ===== */
+    @import url('https://fonts.googleapis.com/css2?family=Plus+Jakarta+Sans:wght@300;400;500;600;700;800&display=swap');
     
-    /* Global Styles */
+    /* ===== CSS VARIABLES ===== */
+    :root {
+        --bg-primary: #0a0a0f;
+        --bg-secondary: #12121a;
+        --bg-card: #1a1a25;
+        --bg-card-hover: #22222f;
+        --accent-primary: #7c3aed;
+        --accent-secondary: #a855f7;
+        --accent-tertiary: #c084fc;
+        --success: #22c55e;
+        --success-light: #4ade80;
+        --danger: #ef4444;
+        --danger-light: #f87171;
+        --warning: #eab308;
+        --text-primary: #ffffff;
+        --text-secondary: #a1a1aa;
+        --text-muted: #71717a;
+        --border-color: rgba(124, 58, 237, 0.2);
+        --border-hover: rgba(124, 58, 237, 0.5);
+        --glow-purple: 0 0 40px rgba(124, 58, 237, 0.3);
+        --glow-green: 0 0 40px rgba(34, 197, 94, 0.3);
+        --glow-red: 0 0 40px rgba(239, 68, 68, 0.3);
+    }
+    
+    /* ===== GLOBAL RESET ===== */
     .stApp {
-        font-family: 'Poppins', sans-serif;
+        font-family: 'Plus Jakarta Sans', -apple-system, BlinkMacSystemFont, sans-serif;
+        background: var(--bg-primary);
+        background-image: 
+            radial-gradient(ellipse at 10% 10%, rgba(124, 58, 237, 0.08) 0%, transparent 50%),
+            radial-gradient(ellipse at 90% 90%, rgba(168, 85, 247, 0.06) 0%, transparent 50%);
     }
     
-    /* Main Header */
-    .main-header {
-        background: linear-gradient(135deg, #667eea 0%, #764ba2 100%);
-        padding: 2rem;
-        border-radius: 20px;
-        margin-bottom: 2rem;
-        text-align: center;
-        box-shadow: 0 10px 40px rgba(102, 126, 234, 0.3);
+    /* Hide Streamlit default elements */
+    #MainMenu, footer, header, .stDeployButton {display: none !important; visibility: hidden !important;}
+    
+    /* ===== SCROLLBAR ===== */
+    ::-webkit-scrollbar {width: 8px; height: 8px;}
+    ::-webkit-scrollbar-track {background: var(--bg-secondary);}
+    ::-webkit-scrollbar-thumb {background: var(--accent-primary); border-radius: 4px;}
+    ::-webkit-scrollbar-thumb:hover {background: var(--accent-secondary);}
+    
+    /* ===== SIDEBAR ===== */
+    section[data-testid="stSidebar"] {
+        background: linear-gradient(180deg, #0f0f18 0%, #1a1a28 100%);
+        border-right: 1px solid var(--border-color);
     }
     
-    .main-header h1 {
-        color: white;
-        font-size: 3rem;
-        font-weight: 700;
-        margin: 0;
-        text-shadow: 2px 2px 4px rgba(0,0,0,0.2);
+    section[data-testid="stSidebar"] > div {
+        padding-top: 1rem;
     }
     
-    .main-header p {
-        color: rgba(255,255,255,0.9);
-        font-size: 1.2rem;
-        margin-top: 0.5rem;
+    /* ===== NAVBAR / LOGO SECTION ===== */
+    .navbar {
+        display: flex;
+        align-items: center;
+        justify-content: space-between;
+        padding: 16px 24px;
+        background: linear-gradient(135deg, rgba(124, 58, 237, 0.1) 0%, rgba(168, 85, 247, 0.05) 100%);
+        border: 1px solid var(--border-color);
+        border-radius: 16px;
+        margin-bottom: 24px;
     }
     
-    /* Upload Box */
-    .upload-box {
-        background: linear-gradient(145deg, #f0f2f6 0%, #e6e9ef 100%);
-        border: 3px dashed #667eea;
-        border-radius: 20px;
-        padding: 3rem;
-        text-align: center;
-        transition: all 0.3s ease;
+    .nav-brand {
+        display: flex;
+        align-items: center;
+        gap: 14px;
     }
     
-    .upload-box:hover {
-        border-color: #764ba2;
-        transform: translateY(-5px);
-        box-shadow: 0 10px 30px rgba(102, 126, 234, 0.2);
+    .nav-logo {
+        width: 48px;
+        height: 48px;
+        border-radius: 12px;
+        object-fit: cover;
     }
     
-    /* Result Cards */
-    .result-card {
-        background: white;
-        border-radius: 20px;
-        padding: 2rem;
-        box-shadow: 0 10px 40px rgba(0,0,0,0.1);
-        margin: 1rem 0;
-    }
-    
-    .result-real {
-        background: linear-gradient(135deg, #00D26A 0%, #00B359 100%);
-        color: white;
-    }
-    
-    .result-fake {
-        background: linear-gradient(135deg, #FF4B4B 0%, #FF3333 100%);
-        color: white;
-    }
-    
-    /* Confidence Meter */
-    .confidence-meter {
-        background: #f0f2f6;
-        border-radius: 50px;
-        height: 30px;
-        overflow: hidden;
-        margin: 1rem 0;
-    }
-    
-    .confidence-fill {
-        height: 100%;
-        border-radius: 50px;
-        transition: width 1s ease-in-out;
-    }
-    
-    /* Stats Cards */
-    .stat-card {
-        background: white;
-        border-radius: 15px;
-        padding: 1.5rem;
-        text-align: center;
-        box-shadow: 0 5px 20px rgba(0,0,0,0.08);
-        transition: transform 0.3s ease;
-    }
-    
-    .stat-card:hover {
-        transform: translateY(-5px);
-    }
-    
-    .stat-number {
-        font-size: 2.5rem;
-        font-weight: 700;
-        background: linear-gradient(135deg, #667eea 0%, #764ba2 100%);
+    .nav-title {
+        font-size: 26px;
+        font-weight: 800;
+        background: linear-gradient(135deg, #fff 0%, #c4b5fd 100%);
         -webkit-background-clip: text;
         -webkit-text-fill-color: transparent;
+        letter-spacing: -0.5px;
+    }
+    
+    .nav-badge {
+        background: linear-gradient(135deg, var(--accent-primary), var(--accent-secondary));
+        color: white;
+        padding: 6px 14px;
+        border-radius: 20px;
+        font-size: 12px;
+        font-weight: 600;
+        letter-spacing: 0.5px;
+    }
+    
+    /* ===== HERO SECTION ===== */
+    .hero {
+        text-align: center;
+        padding: 48px 24px;
+        background: linear-gradient(135deg, rgba(124, 58, 237, 0.12) 0%, rgba(168, 85, 247, 0.08) 100%);
+        border: 1px solid var(--border-color);
+        border-radius: 24px;
+        margin-bottom: 32px;
+        position: relative;
+        overflow: hidden;
+    }
+    
+    .hero::before {
+        content: '';
+        position: absolute;
+        top: -100px;
+        left: 50%;
+        transform: translateX(-50%);
+        width: 400px;
+        height: 400px;
+        background: radial-gradient(circle, rgba(124, 58, 237, 0.2) 0%, transparent 70%);
+        pointer-events: none;
+    }
+    
+    .hero-content {
+        position: relative;
+        z-index: 1;
+    }
+    
+    .hero h1 {
+        font-size: 52px;
+        font-weight: 800;
+        background: linear-gradient(135deg, #ffffff 0%, #e9d5ff 50%, #c4b5fd 100%);
+        -webkit-background-clip: text;
+        -webkit-text-fill-color: transparent;
+        margin: 0 0 12px 0;
+        letter-spacing: -1.5px;
+    }
+    
+    .hero-subtitle {
+        color: var(--text-secondary);
+        font-size: 18px;
+        font-weight: 400;
+        margin: 0;
+    }
+    
+    .hero-stats {
+        display: flex;
+        justify-content: center;
+        gap: 48px;
+        margin-top: 32px;
+    }
+    
+    .stat-item {
+        text-align: center;
+    }
+    
+    .stat-value {
+        font-size: 28px;
+        font-weight: 700;
+        color: var(--accent-tertiary);
     }
     
     .stat-label {
-        color: #666;
-        font-size: 0.9rem;
-        margin-top: 0.5rem;
+        font-size: 13px;
+        color: var(--text-muted);
+        margin-top: 4px;
     }
     
-    /* Feature Cards */
-    .feature-card {
-        background: white;
-        border-radius: 15px;
-        padding: 1.5rem;
+    /* ===== SECTION HEADERS ===== */
+    .section-header {
+        display: flex;
+        align-items: center;
+        gap: 12px;
+        margin-bottom: 20px;
+        padding-bottom: 12px;
+        border-bottom: 1px solid var(--border-color);
+    }
+    
+    .section-icon {
+        width: 40px;
+        height: 40px;
+        background: linear-gradient(135deg, var(--accent-primary), var(--accent-secondary));
+        border-radius: 10px;
+        display: flex;
+        align-items: center;
+        justify-content: center;
+        font-size: 20px;
+    }
+    
+    .section-title {
+        font-size: 20px;
+        font-weight: 700;
+        color: var(--text-primary);
+        margin: 0;
+    }
+    
+    /* ===== CARDS ===== */
+    .card {
+        background: var(--bg-card);
+        border: 1px solid var(--border-color);
+        border-radius: 16px;
+        padding: 24px;
+        transition: all 0.3s ease;
+    }
+    
+    .card:hover {
+        border-color: var(--border-hover);
+        box-shadow: var(--glow-purple);
+    }
+    
+    /* ===== UPLOAD ZONE ===== */
+    .upload-zone {
+        border: 2px dashed var(--border-hover);
+        border-radius: 16px;
+        padding: 48px 32px;
         text-align: center;
-        box-shadow: 0 5px 20px rgba(0,0,0,0.08);
-        height: 100%;
+        background: linear-gradient(135deg, rgba(124, 58, 237, 0.05) 0%, rgba(168, 85, 247, 0.03) 100%);
+        transition: all 0.3s ease;
+        cursor: pointer;
+    }
+    
+    .upload-zone:hover {
+        border-color: var(--accent-primary);
+        background: linear-gradient(135deg, rgba(124, 58, 237, 0.1) 0%, rgba(168, 85, 247, 0.06) 100%);
+    }
+    
+    .upload-icon {
+        font-size: 64px;
+        margin-bottom: 16px;
+    }
+    
+    .upload-title {
+        color: var(--text-primary);
+        font-size: 18px;
+        font-weight: 600;
+        margin-bottom: 8px;
+    }
+    
+    .upload-subtitle {
+        color: var(--text-muted);
+        font-size: 14px;
+    }
+    
+    /* ===== IMAGE INFO ===== */
+    .image-info {
+        background: rgba(124, 58, 237, 0.1);
+        border: 1px solid var(--border-color);
+        border-radius: 12px;
+        padding: 16px;
+        margin-top: 16px;
+    }
+    
+    .info-row {
+        display: flex;
+        justify-content: space-between;
+        padding: 10px 0;
+        border-bottom: 1px solid rgba(124, 58, 237, 0.1);
+    }
+    
+    .info-row:last-child {
+        border-bottom: none;
+    }
+    
+    .info-label {
+        color: var(--text-muted);
+        font-size: 13px;
+        font-weight: 500;
+    }
+    
+    .info-value {
+        color: var(--text-primary);
+        font-size: 13px;
+        font-weight: 600;
+    }
+    
+    /* ===== RESULT CARDS ===== */
+    .result-card {
+        border-radius: 20px;
+        padding: 40px 32px;
+        text-align: center;
+        position: relative;
+        overflow: hidden;
+    }
+    
+    .result-card::before {
+        content: '';
+        position: absolute;
+        top: 0;
+        left: 0;
+        right: 0;
+        height: 4px;
+    }
+    
+    .result-real {
+        background: linear-gradient(135deg, rgba(34, 197, 94, 0.15) 0%, rgba(74, 222, 128, 0.1) 100%);
+        border: 1px solid rgba(34, 197, 94, 0.3);
+        box-shadow: var(--glow-green);
+    }
+    
+    .result-real::before {
+        background: linear-gradient(90deg, var(--success), var(--success-light));
+    }
+    
+    .result-fake {
+        background: linear-gradient(135deg, rgba(239, 68, 68, 0.15) 0%, rgba(248, 113, 113, 0.1) 100%);
+        border: 1px solid rgba(239, 68, 68, 0.3);
+        box-shadow: var(--glow-red);
+    }
+    
+    .result-fake::before {
+        background: linear-gradient(90deg, var(--danger), var(--danger-light));
+    }
+    
+    .result-icon {
+        font-size: 72px;
+        margin-bottom: 16px;
+    }
+    
+    .result-label {
+        font-size: 42px;
+        font-weight: 800;
+        letter-spacing: 3px;
+        margin-bottom: 8px;
+    }
+    
+    .result-real .result-label {
+        color: var(--success);
+    }
+    
+    .result-fake .result-label {
+        color: var(--danger);
+    }
+    
+    .result-confidence {
+        font-size: 18px;
+        color: var(--text-secondary);
+        font-weight: 500;
+    }
+    
+    /* ===== AWAITING RESULT ===== */
+    .awaiting-result {
+        background: var(--bg-card);
+        border: 1px dashed var(--border-color);
+        border-radius: 20px;
+        padding: 64px 32px;
+        text-align: center;
+    }
+    
+    .awaiting-icon {
+        font-size: 80px;
+        opacity: 0.3;
+        margin-bottom: 20px;
+    }
+    
+    .awaiting-text {
+        color: var(--text-muted);
+        font-size: 16px;
+    }
+    
+    /* ===== FEATURES GRID ===== */
+    .features-grid {
+        display: grid;
+        grid-template-columns: repeat(4, 1fr);
+        gap: 16px;
+        margin-top: 16px;
+    }
+    
+    .feature-card {
+        background: var(--bg-card);
+        border: 1px solid var(--border-color);
+        border-radius: 16px;
+        padding: 24px 16px;
+        text-align: center;
+        transition: all 0.3s ease;
+    }
+    
+    .feature-card:hover {
+        transform: translateY(-4px);
+        border-color: var(--border-hover);
+        box-shadow: var(--glow-purple);
     }
     
     .feature-icon {
-        font-size: 3rem;
-        margin-bottom: 1rem;
+        font-size: 36px;
+        margin-bottom: 12px;
     }
     
-    /* Sidebar Styling */
-    .sidebar-info {
-        background: linear-gradient(145deg, #f8f9fa 0%, #e9ecef 100%);
-        border-radius: 15px;
-        padding: 1.5rem;
-        margin: 1rem 0;
+    .feature-title {
+        color: var(--text-primary);
+        font-size: 15px;
+        font-weight: 700;
+        margin-bottom: 6px;
     }
     
-    /* Animation */
-    @keyframes pulse {
-        0% { transform: scale(1); }
-        50% { transform: scale(1.05); }
-        100% { transform: scale(1); }
+    .feature-desc {
+        color: var(--text-muted);
+        font-size: 12px;
+        line-height: 1.5;
     }
     
-    .pulse {
-        animation: pulse 2s infinite;
+    /* ===== SIDEBAR SECTIONS ===== */
+    .sidebar-logo {
+        display: flex;
+        align-items: center;
+        gap: 12px;
+        padding: 20px;
+        background: linear-gradient(135deg, rgba(124, 58, 237, 0.15) 0%, rgba(168, 85, 247, 0.1) 100%);
+        border: 1px solid var(--border-color);
+        border-radius: 16px;
+        margin-bottom: 24px;
     }
     
-    /* Hide Streamlit branding */
-    #MainMenu {visibility: hidden;}
-    footer {visibility: hidden;}
+    .sidebar-logo img {
+        width: 50px;
+        height: 50px;
+        border-radius: 12px;
+    }
     
-    /* Custom Button */
-    .stButton>button {
-        background: linear-gradient(135deg, #667eea 0%, #764ba2 100%);
+    .sidebar-logo-text h2 {
+        font-size: 22px;
+        font-weight: 800;
+        background: linear-gradient(135deg, #fff, #c4b5fd);
+        -webkit-background-clip: text;
+        -webkit-text-fill-color: transparent;
+        margin: 0;
+    }
+    
+    .sidebar-logo-text span {
+        font-size: 11px;
+        color: var(--text-muted);
+        text-transform: uppercase;
+        letter-spacing: 2px;
+    }
+    
+    .sidebar-section {
+        background: var(--bg-card);
+        border: 1px solid var(--border-color);
+        border-radius: 12px;
+        padding: 20px;
+        margin-bottom: 16px;
+    }
+    
+    .sidebar-section-title {
+        color: var(--accent-tertiary);
+        font-size: 12px;
+        font-weight: 700;
+        text-transform: uppercase;
+        letter-spacing: 1.5px;
+        margin-bottom: 16px;
+        display: flex;
+        align-items: center;
+        gap: 8px;
+    }
+    
+    .step-item {
+        display: flex;
+        align-items: flex-start;
+        gap: 12px;
+        margin-bottom: 14px;
+    }
+    
+    .step-num {
+        width: 26px;
+        height: 26px;
+        background: linear-gradient(135deg, var(--accent-primary), var(--accent-secondary));
+        border-radius: 50%;
+        display: flex;
+        align-items: center;
+        justify-content: center;
+        font-size: 12px;
+        font-weight: 700;
         color: white;
-        border: none;
-        padding: 0.75rem 2rem;
-        border-radius: 50px;
+        flex-shrink: 0;
+    }
+    
+    .step-text {
+        color: var(--text-secondary);
+        font-size: 13px;
+        line-height: 1.6;
+    }
+    
+    .step-text strong {
+        color: var(--text-primary);
+    }
+    
+    .spec-grid {
+        display: grid;
+        gap: 10px;
+    }
+    
+    .spec-item {
+        display: flex;
+        justify-content: space-between;
+        padding: 10px 14px;
+        background: rgba(124, 58, 237, 0.1);
+        border-radius: 8px;
+    }
+    
+    .spec-label {
+        color: var(--text-muted);
+        font-size: 12px;
+    }
+    
+    .spec-value {
+        color: var(--text-primary);
+        font-size: 12px;
         font-weight: 600;
-        font-size: 1rem;
-        transition: all 0.3s ease;
-        box-shadow: 0 5px 20px rgba(102, 126, 234, 0.3);
     }
     
-    .stButton>button:hover {
-        transform: translateY(-2px);
-        box-shadow: 0 8px 25px rgba(102, 126, 234, 0.4);
+    /* ===== FOOTER ===== */
+    .footer {
+        text-align: center;
+        padding: 32px 16px;
+        margin-top: 48px;
+        border-top: 1px solid var(--border-color);
     }
     
-    /* Progress bar styling */
+    .footer-brand {
+        font-size: 18px;
+        font-weight: 700;
+        color: var(--accent-tertiary);
+        margin-bottom: 8px;
+    }
+    
+    .footer-text {
+        color: var(--text-muted);
+        font-size: 13px;
+    }
+    
+    /* ===== BUTTONS ===== */
+    .stButton > button {
+        background: linear-gradient(135deg, var(--accent-primary), var(--accent-secondary)) !important;
+        color: white !important;
+        border: none !important;
+        padding: 16px 32px !important;
+        border-radius: 12px !important;
+        font-weight: 600 !important;
+        font-size: 15px !important;
+        letter-spacing: 0.3px !important;
+        transition: all 0.3s ease !important;
+        box-shadow: 0 8px 24px -8px rgba(124, 58, 237, 0.5) !important;
+    }
+    
+    .stButton > button:hover {
+        transform: translateY(-2px) !important;
+        box-shadow: 0 12px 32px -8px rgba(124, 58, 237, 0.6) !important;
+    }
+    
+    /* ===== FILE UPLOADER ===== */
+    .stFileUploader > div {
+        background: rgba(124, 58, 237, 0.05) !important;
+        border: 2px dashed var(--border-hover) !important;
+        border-radius: 12px !important;
+    }
+    
+    .stFileUploader > div:hover {
+        border-color: var(--accent-primary) !important;
+    }
+    
+    /* ===== PROGRESS BAR ===== */
     .stProgress > div > div {
-        background: linear-gradient(135deg, #667eea 0%, #764ba2 100%);
+        background: linear-gradient(90deg, var(--accent-primary), var(--accent-secondary)) !important;
+        border-radius: 10px;
+    }
+    
+    /* ===== EXPANDER ===== */
+    .streamlit-expanderHeader {
+        background: var(--bg-card) !important;
+        border-radius: 12px !important;
+        border: 1px solid var(--border-color) !important;
+    }
+    
+    /* ===== RESPONSIVE ===== */
+    @media (max-width: 768px) {
+        .hero h1 { font-size: 36px; }
+        .features-grid { grid-template-columns: repeat(2, 1fr); }
+        .hero-stats { gap: 24px; }
+        .nav-badge { display: none; }
     }
 </style>
 """, unsafe_allow_html=True)
@@ -220,335 +653,466 @@ def load_classification_model():
     model_path = "model/cnn_model_weights.h5"
     if os.path.exists(model_path):
         return load_model(model_path)
-    else:
-        st.error("⚠️ Model file not found! Please ensure 'model/cnn_model_weights.h5' exists.")
-        return None
+    return None
 
 
 # ============================================
 # PREDICTION FUNCTION
 # ============================================
 def predict_image(model, image: np.ndarray):
-    """
-    Make prediction on the input image.
-    
-    Returns:
-        tuple: (prediction_label, confidence, raw_predictions)
-    """
-    # Preprocess image
+    """Make prediction on the input image."""
     processed = preprocess_image(image)
-    
-    # Make prediction
     predictions = model.predict(processed, verbose=0)
-    
-    # Get results
     pred_class = int(np.argmax(predictions[0]))
     confidence = float(predictions[0][pred_class])
-    
     labels = {0: "Fake", 1: "Real"}
-    
     return labels[pred_class], confidence, predictions[0]
 
 
 # ============================================
-# VISUALIZATION FUNCTIONS
+# VISUALIZATION
 # ============================================
 def create_confidence_gauge(confidence: float, is_real: bool):
-    """Create a beautiful gauge chart for confidence."""
-    color = "#00D26A" if is_real else "#FF4B4B"
+    """Create a modern semicircle gauge chart."""
+    color = "#22c55e" if is_real else "#ef4444"
+    light_color = "rgba(34, 197, 94, 0.3)" if is_real else "rgba(239, 68, 68, 0.3)"
     
     fig = go.Figure(go.Indicator(
         mode="gauge+number",
         value=confidence * 100,
         domain={'x': [0, 1], 'y': [0, 1]},
-        number={'suffix': "%", 'font': {'size': 40, 'color': color}},
+        number={
+            'suffix': "%", 
+            'font': {'size': 56, 'color': color, 'family': 'Plus Jakarta Sans'},
+            'valueformat': '.1f'
+        },
         gauge={
-            'axis': {'range': [0, 100], 'tickwidth': 1, 'tickcolor': "#ddd"},
-            'bar': {'color': color, 'thickness': 0.75},
-            'bgcolor': "white",
-            'borderwidth': 2,
-            'bordercolor': "#ddd",
+            'axis': {
+                'range': [0, 100], 
+                'tickwidth': 2, 
+                'tickcolor': "#27272a",
+                'tickfont': {'color': '#52525b', 'size': 12},
+                'dtick': 20
+            },
+            'bar': {'color': color, 'thickness': 0.6},
+            'bgcolor': "#18181b",
+            'borderwidth': 0,
             'steps': [
-                {'range': [0, 50], 'color': '#ffebee'},
-                {'range': [50, 75], 'color': '#fff3e0'},
-                {'range': [75, 100], 'color': '#e8f5e9'}
+                {'range': [0, 25], 'color': 'rgba(239, 68, 68, 0.2)'},
+                {'range': [25, 50], 'color': 'rgba(249, 115, 22, 0.2)'},
+                {'range': [50, 75], 'color': 'rgba(234, 179, 8, 0.2)'},
+                {'range': [75, 100], 'color': 'rgba(34, 197, 94, 0.2)'}
             ],
             'threshold': {
                 'line': {'color': color, 'width': 4},
-                'thickness': 0.75,
+                'thickness': 0.8,
                 'value': confidence * 100
             }
         }
     ))
     
     fig.update_layout(
-        height=250,
-        margin=dict(l=20, r=20, t=30, b=20),
-        paper_bgcolor='rgba(0,0,0,0)',
-        font={'family': 'Poppins'}
-    )
-    
-    return fig
-
-
-def create_probability_chart(predictions):
-    """Create a bar chart showing class probabilities."""
-    labels = ['Fake', 'Real']
-    colors = ['#FF4B4B', '#00D26A']
-    
-    fig = go.Figure(data=[
-        go.Bar(
-            x=labels,
-            y=predictions * 100,
-            marker_color=colors,
-            text=[f'{p*100:.1f}%' for p in predictions],
-            textposition='auto',
-            textfont=dict(size=16, color='white')
-        )
-    ])
-    
-    fig.update_layout(
-        title=dict(text='Class Probabilities', font=dict(size=18)),
-        yaxis_title='Probability (%)',
-        yaxis_range=[0, 100],
-        height=300,
-        margin=dict(l=20, r=20, t=50, b=20),
+        height=220,
+        margin=dict(l=30, r=30, t=40, b=0),
         paper_bgcolor='rgba(0,0,0,0)',
         plot_bgcolor='rgba(0,0,0,0)',
-        font={'family': 'Poppins'}
+        font={'family': 'Plus Jakarta Sans'}
+    )
+    
+    return fig
+
+
+def create_probability_bars(predictions):
+    """Create modern donut chart for probabilities."""
+    labels = ['Fake', 'Real']
+    colors = ['#ef4444', '#22c55e']
+    values = [pred * 100 for pred in predictions]
+    
+    fig = go.Figure(data=[go.Pie(
+        labels=labels,
+        values=values,
+        hole=0.6,
+        marker=dict(
+            colors=colors,
+            line=dict(color='#0a0a0f', width=2)
+        ),
+        textinfo='percent',
+        textposition='inside',
+        textfont=dict(size=14, color='white', family='Plus Jakarta Sans'),
+        hovertemplate='<b>%{label}</b><br>Probability: %{value:.1f}%<extra></extra>',
+        direction='clockwise',
+        sort=False
+    )])
+    
+    # Add center annotation with result
+    dominant = 'Real' if values[1] > values[0] else 'Fake'
+    dominant_value = max(values)
+    dominant_color = '#22c55e' if values[1] > values[0] else '#ef4444'
+    
+    fig.add_annotation(
+        text=f"<b>{dominant_value:.1f}%</b><br><span style='font-size:10px;color:#71717a'>{dominant}</span>",
+        x=0.5, y=0.5,
+        font=dict(size=18, color=dominant_color, family='Plus Jakarta Sans'),
+        showarrow=False
+    )
+    
+    fig.update_layout(
+        height=180,
+        margin=dict(l=10, r=10, t=10, b=10),
+        paper_bgcolor='rgba(0,0,0,0)',
+        plot_bgcolor='rgba(0,0,0,0)',
+        showlegend=True,
+        legend=dict(
+            orientation='h',
+            yanchor='bottom',
+            y=-0.15,
+            xanchor='center',
+            x=0.5,
+            font=dict(size=11, color='#a1a1aa')
+        ),
+        font={'family': 'Plus Jakarta Sans'}
     )
     
     return fig
 
 
 # ============================================
-# MAIN APP
+# SESSION STATE
+# ============================================
+if 'analysis_history' not in st.session_state:
+    st.session_state.analysis_history = []
+if 'total_analyzed' not in st.session_state:
+    st.session_state.total_analyzed = 0
+
+
+# ============================================
+# MAIN APPLICATION
 # ============================================
 def main():
-    # Header
-    st.markdown("""
-    <div class="main-header">
-        <h1>🔍 TruthLens</h1>
-        <p>AI-Powered Image Authenticity Detector</p>
-    </div>
-    """, unsafe_allow_html=True)
-    
-    # Sidebar
+    # ===== SIDEBAR =====
     with st.sidebar:
-        st.markdown("## 🎯 About TruthLens")
+        # Logo Section
+        if LOGO_BASE64:
+            st.markdown(f"""
+            <div class="sidebar-logo">
+                <img src="data:image/png;base64,{LOGO_BASE64}" alt="Logo">
+                <div class="sidebar-logo-text">
+                    <h2>TruthLens</h2>
+                    <span>AI Detection</span>
+                </div>
+            </div>
+            """, unsafe_allow_html=True)
+        else:
+            st.markdown("""
+            <div class="sidebar-logo">
+                <div style="font-size: 40px;">🔍</div>
+                <div class="sidebar-logo-text">
+                    <h2>TruthLens</h2>
+                    <span>AI Detection</span>
+                </div>
+            </div>
+            """, unsafe_allow_html=True)
+        
+        # How It Works
         st.markdown("""
-        <div class="sidebar-info">
-            <p><strong>TruthLens</strong> uses advanced deep learning to detect fake or AI-generated images.</p>
-            <p>Our CNN model analyzes texture patterns using Gabor filters to identify manipulated content.</p>
+        <div class="sidebar-section">
+            <div class="sidebar-section-title">🛠️ How It Works</div>
+            <div class="step-item">
+                <span class="step-num">1</span>
+                <span class="step-text"><strong>Upload</strong> your image file</span>
+            </div>
+            <div class="step-item">
+                <span class="step-num">2</span>
+                <span class="step-text"><strong>Gabor Filter</strong> extracts textures</span>
+            </div>
+            <div class="step-item">
+                <span class="step-num">3</span>
+                <span class="step-text"><strong>CNN Model</strong> analyzes patterns</span>
+            </div>
+            <div class="step-item">
+                <span class="step-num">4</span>
+                <span class="step-text"><strong>Get Results</strong> instantly</span>
+            </div>
         </div>
         """, unsafe_allow_html=True)
         
-        st.markdown("### 🛠️ How It Works")
+        # Model Specifications
         st.markdown("""
-        1. 📤 **Upload** your image
-        2. 🔬 **Gabor Filter** extracts textures
-        3. 🧠 **CNN Model** analyzes patterns
-        4. ✅ **Get Results** with confidence score
-        """)
+        <div class="sidebar-section">
+            <div class="sidebar-section-title">📊 Model Specs</div>
+            <div class="spec-grid">
+                <div class="spec-item">
+                    <span class="spec-label">Architecture</span>
+                    <span class="spec-value">CNN (3 Conv)</span>
+                </div>
+                <div class="spec-item">
+                    <span class="spec-label">Input Size</span>
+                    <span class="spec-value">128 × 128</span>
+                </div>
+                <div class="spec-item">
+                    <span class="spec-label">Preprocessing</span>
+                    <span class="spec-value">Dual Gabor</span>
+                </div>
+                <div class="spec-item">
+                    <span class="spec-label">Output</span>
+                    <span class="spec-value">Fake / Real</span>
+                </div>
+            </div>
+        </div>
+        """, unsafe_allow_html=True)
         
+        # Session Stats
+        st.markdown(f"""
+        <div class="sidebar-section">
+            <div class="sidebar-section-title">📈 Session Stats</div>
+            <div class="spec-grid">
+                <div class="spec-item">
+                    <span class="spec-label">Images Analyzed</span>
+                    <span class="spec-value">{st.session_state.total_analyzed}</span>
+                </div>
+                <div class="spec-item">
+                    <span class="spec-label">Session Started</span>
+                    <span class="spec-value">{datetime.now().strftime('%H:%M')}</span>
+                </div>
+            </div>
+        </div>
+        """, unsafe_allow_html=True)
+        
+        # Footer
         st.markdown("---")
-        
-        st.markdown("### 📊 Model Info")
         st.markdown("""
-        - **Architecture:** CNN (3 Conv layers)
-        - **Input Size:** 128 × 128 × 3
-        - **Preprocessing:** Double Gabor Filter
-        - **Classes:** Fake / Real
-        """)
-        
-        st.markdown("---")
-        st.markdown("### 👨‍💻 Developer")
-        st.markdown("Made with ❤️ by **Bhanucreator**")
-        st.markdown("[GitHub](https://github.com/Bhanucreator/ImageClasifier)")
+        <div style="text-align: center; padding: 12px 0;">
+            <p style="color: #a1a1aa; font-size: 12px; margin: 0;">Made with ❤️ by</p>
+            <p style="color: #fff; font-size: 14px; font-weight: 600; margin: 4px 0;">Bhanucreator</p>
+            <a href="https://github.com/Bhanucreator/ImageClasifier" target="_blank" 
+               style="color: #a855f7; font-size: 11px; text-decoration: none;">
+                View on GitHub →
+            </a>
+        </div>
+        """, unsafe_allow_html=True)
     
-    # Main Content
+    # ===== MAIN CONTENT =====
+    
+    # Navbar
+    if LOGO_BASE64:
+        st.markdown(f"""
+        <div class="navbar">
+            <div class="nav-brand">
+                <img src="data:image/png;base64,{LOGO_BASE64}" class="nav-logo" alt="Logo">
+                <span class="nav-title">TruthLens</span>
+            </div>
+            <span class="nav-badge">AI Powered</span>
+        </div>
+        """, unsafe_allow_html=True)
+    else:
+        st.markdown("""
+        <div class="navbar">
+            <div class="nav-brand">
+                <span style="font-size: 36px;">🔍</span>
+                <span class="nav-title">TruthLens</span>
+            </div>
+            <span class="nav-badge">AI Powered</span>
+        </div>
+        """, unsafe_allow_html=True)
+    
+    # Hero Section
+    st.markdown("""
+    <div class="hero">
+        <div class="hero-content">
+            <h1>Detect Fake Images Instantly</h1>
+            <p class="hero-subtitle">Powered by Deep Learning & Gabor Filter Texture Analysis</p>
+            <div class="hero-stats">
+                <div class="stat-item">
+                    <div class="stat-value">CNN</div>
+                    <div class="stat-label">Deep Learning</div>
+                </div>
+                <div class="stat-item">
+                    <div class="stat-value">128px</div>
+                    <div class="stat-label">Input Resolution</div>
+                </div>
+                <div class="stat-item">
+                    <div class="stat-value">&lt;1s</div>
+                    <div class="stat-label">Analysis Time</div>
+                </div>
+            </div>
+        </div>
+    </div>
+    """, unsafe_allow_html=True)
+    
+    # Main Columns
     col1, col2 = st.columns([1, 1], gap="large")
     
+    # LEFT COLUMN - Upload
     with col1:
-        st.markdown("### 📤 Upload Image")
+        st.markdown("""
+        <div class="section-header">
+            <div class="section-icon">📤</div>
+            <h2 class="section-title">Upload Image</h2>
+        </div>
+        """, unsafe_allow_html=True)
         
         uploaded_file = st.file_uploader(
-            "Choose an image...",
+            "Upload",
             type=['jpg', 'jpeg', 'png', 'webp'],
-            help="Supported formats: JPG, JPEG, PNG, WEBP"
+            label_visibility="collapsed",
+            help="Drag and drop or click to upload. Supports JPG, PNG, WEBP"
         )
         
         if uploaded_file is not None:
-            # Display original image
             image = Image.open(uploaded_file)
-            st.image(image, caption="📷 Uploaded Image", use_container_width=True)
+            # Display image with controlled size
+            col_img1, col_img2, col_img3 = st.columns([1, 3, 1])
+            with col_img2:
+                st.image(image, caption="Uploaded Image", width=280)
             
-            # Show image info
+            # Image Info Card
             st.markdown(f"""
-            <div class="stat-card" style="margin-top: 1rem;">
-                <p style="margin: 0; color: #666;">
-                    <strong>File:</strong> {uploaded_file.name}<br>
-                    <strong>Size:</strong> {image.size[0]} × {image.size[1]} px<br>
-                    <strong>Format:</strong> {image.format or 'Unknown'}
-                </p>
+            <div class="image-info">
+                <div class="info-row">
+                    <span class="info-label">📁 Filename</span>
+                    <span class="info-value">{uploaded_file.name}</span>
+                </div>
+                <div class="info-row">
+                    <span class="info-label">📐 Dimensions</span>
+                    <span class="info-value">{image.size[0]} × {image.size[1]} px</span>
+                </div>
+                <div class="info-row">
+                    <span class="info-label">💾 File Size</span>
+                    <span class="info-value">{uploaded_file.size / 1024:.1f} KB</span>
+                </div>
+                <div class="info-row">
+                    <span class="info-label">🎨 Mode</span>
+                    <span class="info-value">{image.mode}</span>
+                </div>
             </div>
             """, unsafe_allow_html=True)
             
-            # Analyze button
             st.markdown("<br>", unsafe_allow_html=True)
-            analyze_clicked = st.button("🔍 Analyze Image", use_container_width=True)
+            analyze_btn = st.button("🔍 Analyze Image", use_container_width=True)
         else:
             st.markdown("""
-            <div class="upload-box">
-                <p style="font-size: 3rem; margin: 0;">📁</p>
-                <p style="font-size: 1.2rem; color: #666; margin: 0.5rem 0;">
-                    Drag and drop your image here
-                </p>
-                <p style="color: #999; font-size: 0.9rem;">
-                    or click to browse
-                </p>
+            <div class="upload-zone">
+                <div class="upload-icon">🖼️</div>
+                <p class="upload-title">Drop your image here</p>
+                <p class="upload-subtitle">Supports JPG, JPEG, PNG, WEBP • Max 200MB</p>
             </div>
             """, unsafe_allow_html=True)
-            analyze_clicked = False
+            analyze_btn = False
     
+    # RIGHT COLUMN - Results
     with col2:
-        st.markdown("### 📊 Analysis Results")
+        st.markdown("""
+        <div class="section-header">
+            <div class="section-icon">📊</div>
+            <h2 class="section-title">Analysis Results</h2>
+        </div>
+        """, unsafe_allow_html=True)
         
-        if uploaded_file is not None and analyze_clicked:
-            # Load model
+        if uploaded_file is not None and analyze_btn:
             model = load_classification_model()
             
             if model is not None:
-                # Show progress
-                progress_bar = st.progress(0)
-                status_text = st.empty()
+                # Progress Animation
+                progress = st.progress(0)
+                status = st.empty()
                 
-                # Step 1: Loading
-                status_text.text("🔄 Loading image...")
-                progress_bar.progress(20)
-                time.sleep(0.3)
+                status.markdown("🔄 **Loading image...**")
+                progress.progress(20)
+                time.sleep(0.15)
                 
-                # Step 2: Preprocessing
-                status_text.text("🔬 Applying Gabor filters...")
-                progress_bar.progress(50)
+                status.markdown("🔬 **Applying Gabor filters...**")
+                progress.progress(45)
                 cv_image = load_image_from_pil(image)
-                time.sleep(0.3)
+                time.sleep(0.15)
                 
-                # Step 3: Prediction
-                status_text.text("🧠 Analyzing with CNN...")
-                progress_bar.progress(80)
+                status.markdown("🧠 **Running CNN analysis...**")
+                progress.progress(70)
                 prediction, confidence, raw_preds = predict_image(model, cv_image)
-                time.sleep(0.3)
+                time.sleep(0.15)
                 
-                # Complete
-                progress_bar.progress(100)
-                status_text.text("✅ Analysis complete!")
-                time.sleep(0.2)
-                progress_bar.empty()
-                status_text.empty()
+                status.markdown("✨ **Finalizing results...**")
+                progress.progress(100)
+                time.sleep(0.1)
                 
-                # Results
+                progress.empty()
+                status.empty()
+                
+                # Update session stats
+                st.session_state.total_analyzed += 1
+                
+                # Display Results
                 is_real = prediction == "Real"
                 emoji = get_confidence_emoji(confidence, is_real)
-                color = get_confidence_color(confidence, is_real)
-                
-                # Result Card
                 result_class = "result-real" if is_real else "result-fake"
+                
                 st.markdown(f"""
-                <div class="result-card {result_class}" style="text-align: center;">
-                    <p style="font-size: 4rem; margin: 0;">{emoji}</p>
-                    <h2 style="font-size: 2.5rem; margin: 0.5rem 0;">{prediction.upper()}</h2>
-                    <p style="font-size: 1.5rem; opacity: 0.9;">
-                        Confidence: {format_confidence(confidence)}
-                    </p>
+                <div class="result-card {result_class}">
+                    <div class="result-icon">{emoji}</div>
+                    <div class="result-label">{prediction.upper()}</div>
+                    <div class="result-confidence">Confidence: {format_confidence(confidence)}</div>
                 </div>
                 """, unsafe_allow_html=True)
                 
                 # Gauge Chart
-                st.plotly_chart(
-                    create_confidence_gauge(confidence, is_real),
-                    use_container_width=True
-                )
+                st.plotly_chart(create_confidence_gauge(confidence, is_real), use_container_width=True)
                 
-                # Probability Chart
-                st.plotly_chart(
-                    create_probability_chart(raw_preds),
-                    use_container_width=True
-                )
+                # Probability Donut Chart
+                st.markdown("<p style='color: #a1a1aa; font-size: 14px; font-weight: 600; margin-bottom: 8px;'>📊 Probability Distribution</p>", unsafe_allow_html=True)
+                st.plotly_chart(create_probability_bars(raw_preds), use_container_width=True)
                 
-                # Show processed image
+                # Gabor Filter View
                 with st.expander("🔬 View Gabor Filtered Image"):
                     gabor_img = apply_gabor_filter(cv_image)
                     gabor_rgb = cv2.cvtColor(gabor_img, cv2.COLOR_BGR2RGB)
-                    st.image(gabor_rgb, caption="Gabor Filtered (Texture Analysis)", use_container_width=True)
-                
+                    gcol1, gcol2, gcol3 = st.columns([1, 2, 1])
+                    with gcol2:
+                        st.image(gabor_rgb, caption="Texture Analysis", width=220)
+            else:
+                st.error("⚠️ Model file not found. Please ensure `model/cnn_model_weights.h5` exists.")
         else:
-            # Placeholder when no image
             st.markdown("""
-            <div class="result-card" style="text-align: center; padding: 4rem 2rem;">
-                <p style="font-size: 4rem; margin: 0; opacity: 0.3;">🔍</p>
-                <p style="color: #999; font-size: 1.1rem;">
-                    Upload an image and click <strong>Analyze</strong> to see results
-                </p>
+            <div class="awaiting-result">
+                <div class="awaiting-icon">🔍</div>
+                <p class="awaiting-text">Upload an image and click <strong>Analyze</strong> to see results</p>
             </div>
             """, unsafe_allow_html=True)
     
-    # Features Section
-    st.markdown("---")
-    st.markdown("### ✨ Features")
-    
-    feat_col1, feat_col2, feat_col3, feat_col4 = st.columns(4)
-    
-    with feat_col1:
-        st.markdown("""
-        <div class="feature-card">
-            <div class="feature-icon">🧠</div>
-            <h4>Deep Learning</h4>
-            <p style="color: #666; font-size: 0.9rem;">
-                CNN-based classification for accurate detection
-            </p>
-        </div>
-        """, unsafe_allow_html=True)
-    
-    with feat_col2:
-        st.markdown("""
-        <div class="feature-card">
-            <div class="feature-icon">🔬</div>
-            <h4>Gabor Filters</h4>
-            <p style="color: #666; font-size: 0.9rem;">
-                Advanced texture analysis for better accuracy
-            </p>
-        </div>
-        """, unsafe_allow_html=True)
-    
-    with feat_col3:
-        st.markdown("""
-        <div class="feature-card">
-            <div class="feature-icon">⚡</div>
-            <h4>Fast Results</h4>
-            <p style="color: #666; font-size: 0.9rem;">
-                Get predictions in seconds
-            </p>
-        </div>
-        """, unsafe_allow_html=True)
-    
-    with feat_col4:
-        st.markdown("""
-        <div class="feature-card">
-            <div class="feature-icon">📊</div>
-            <h4>Confidence Score</h4>
-            <p style="color: #666; font-size: 0.9rem;">
-                Detailed probability breakdown
-            </p>
-        </div>
-        """, unsafe_allow_html=True)
-    
-    # Footer
+    # ===== FEATURES SECTION =====
     st.markdown("---")
     st.markdown("""
-    <div style="text-align: center; padding: 2rem; color: #999;">
-        <p>🔍 <strong>TruthLens</strong> - Detecting fake images with AI</p>
-        <p style="font-size: 0.8rem;">Made with ❤️ using Streamlit & TensorFlow</p>
+    <div class="section-header" style="margin-top: 32px;">
+        <div class="section-icon">✨</div>
+        <h2 class="section-title">Key Features</h2>
+    </div>
+    <div class="features-grid">
+        <div class="feature-card">
+            <div class="feature-icon">🧠</div>
+            <div class="feature-title">Deep Learning</div>
+            <div class="feature-desc">3-layer CNN architecture trained on thousands of images</div>
+        </div>
+        <div class="feature-card">
+            <div class="feature-icon">🔬</div>
+            <div class="feature-title">Gabor Filters</div>
+            <div class="feature-desc">Advanced texture analysis for detecting manipulation artifacts</div>
+        </div>
+        <div class="feature-card">
+            <div class="feature-icon">⚡</div>
+            <div class="feature-title">Instant Results</div>
+            <div class="feature-desc">Get predictions in under a second</div>
+        </div>
+        <div class="feature-card">
+            <div class="feature-icon">🎯</div>
+            <div class="feature-title">High Accuracy</div>
+            <div class="feature-desc">Reliable detection with confidence scores</div>
+        </div>
+    </div>
+    """, unsafe_allow_html=True)
+    
+    # ===== FOOTER =====
+    st.markdown("""
+    <div class="footer">
+        <div class="footer-brand">🔍 TruthLens</div>
+        <p class="footer-text">AI-Powered Fake Image Detection • Built with Streamlit & TensorFlow</p>
     </div>
     """, unsafe_allow_html=True)
 

@@ -1,15 +1,3 @@
----
-title: TruthLens - Fake Image Detector
-emoji: 🔍
-colorFrom: indigo
-colorTo: purple
-sdk: streamlit
-sdk_version: 1.28.0
-app_file: app.py
-pinned: true
-license: mit
----
-
 # 🔍 TruthLens - AI-Powered Image Authenticity Detector
 
 <p align="center">

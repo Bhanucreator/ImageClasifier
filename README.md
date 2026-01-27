@@ -13,25 +13,46 @@ license: mit
 # 🔍 TruthLens - AI-Powered Image Authenticity Detector
 
 <p align="center">
+  <img src="logo.png" alt="TruthLens Logo" width="120">
+</p>
+
+<p align="center">
   <img src="https://img.shields.io/badge/Python-3.8+-blue?style=for-the-badge&logo=python" alt="Python">
   <img src="https://img.shields.io/badge/TensorFlow-2.10+-orange?style=for-the-badge&logo=tensorflow" alt="TensorFlow">
   <img src="https://img.shields.io/badge/Streamlit-1.28+-red?style=for-the-badge&logo=streamlit" alt="Streamlit">
-  <img src="https://img.shields.io/badge/License-MIT-green?style=for-the-badge" alt="License">
+  <img src="https://img.shields.io/badge/OpenCV-4.5+-green?style=for-the-badge&logo=opencv" alt="OpenCV">
+  <img src="https://img.shields.io/badge/License-MIT-purple?style=for-the-badge" alt="License">
 </p>
+
+<p align="center">
+  <a href="https://imageclasifier-26nylzyg6d3qjjdoaspu49.streamlit.app/"><img src="https://img.shields.io/badge/🚀%20Live%20Demo-Streamlit%20Cloud-FF4B4B?style=for-the-badge" alt="Live Demo"></a>
+  <a href="https://github.com/Bhanucreator/ImageClasifier"><img src="https://img.shields.io/badge/GitHub-Repository-181717?style=for-the-badge&logo=github" alt="GitHub"></a>
+</p>
+
+---
 
 **TruthLens** is a deep learning-powered web application that detects fake or AI-generated images using Convolutional Neural Networks (CNN) and Gabor filter texture analysis.
 
+## 🌐 Live Demo
+
+### 🚀 **[Try TruthLens Now → imageclasifier.streamlit.app](https://imageclasifier-26nylzyg6d3qjjdoaspu49.streamlit.app/)**
+
+<p align="center">
+  <i>Free • No Sign-up Required • Works on Any Device</i>
+</p>
+
+---
+
 ## ✨ Features
 
-- 🧠 **Deep Learning** - CNN-based classification for accurate detection
-- 🔬 **Gabor Filters** - Advanced texture analysis for better accuracy
-- ⚡ **Fast Results** - Get predictions in seconds
-- 📊 **Confidence Score** - Detailed probability breakdown
-- 🎨 **Beautiful UI** - Modern, responsive interface
-
-## 🚀 Live Demo
-
-[![Hugging Face Spaces](https://img.shields.io/badge/🤗%20Hugging%20Face-Spaces-blue)](https://huggingface.co/spaces/Bhanucreator/TruthLens)
+| Feature | Description |
+|---------|-------------|
+| 🧠 **Deep Learning** | CNN-based classification for accurate detection |
+| 🔬 **Gabor Filters** | Advanced texture analysis for better accuracy |
+| ⚡ **Fast Results** | Get predictions in under 1 second |
+| 📊 **Confidence Score** | Detailed probability breakdown with visualizations |
+| 🎨 **Modern UI** | Beautiful dark theme with glassmorphism design |
+| 📱 **Responsive** | Works seamlessly on desktop and mobile |
 
 ## 📁 Project Structure
 
@@ -133,13 +154,38 @@ This project is licensed under the MIT License.
 
 ## 👨‍💻 Author
 
-**Bhanucreator**
+<p align="center">
+  <img src="https://img.shields.io/badge/Developer-Bhanu%20Kiran-7c3aed?style=for-the-badge" alt="Developer">
+</p>
 
-- GitHub: [@Bhanucreator](https://github.com/Bhanucreator)
-- Email: bhanukiran90216@gmail.com
+**Bhanu Kiran**
+
+| Platform | Link |
+|----------|------|
+| 🐙 GitHub | [@Bhanucreator](https://github.com/Bhanucreator) |
+| 📧 Email | bhanukiran90216@gmail.com |
+| 🌐 Project | [ImageClasifier](https://github.com/Bhanucreator/ImageClasifier) |
+
+---
+
+## ⭐ Support
+
+If you found this project helpful, please consider giving it a ⭐ on GitHub!
+
+<p align="center">
+  <a href="https://github.com/Bhanucreator/ImageClasifier/stargazers">
+    <img src="https://img.shields.io/github/stars/Bhanucreator/ImageClasifier?style=social" alt="GitHub Stars">
+  </a>
+</p>
 
 ---
 
 <p align="center">
-  Made with ❤️ using TensorFlow & Streamlit
+  <img src="https://img.shields.io/badge/Made%20with-❤️-red?style=flat-square" alt="Made with Love">
+  <img src="https://img.shields.io/badge/Powered%20by-TensorFlow-orange?style=flat-square&logo=tensorflow" alt="TensorFlow">
+  <img src="https://img.shields.io/badge/Deployed%20on-Streamlit%20Cloud-FF4B4B?style=flat-square&logo=streamlit" alt="Streamlit">
+</p>
+
+<p align="center">
+  <b>🔍 TruthLens</b> — Detecting fake images with the power of AI
 </p>

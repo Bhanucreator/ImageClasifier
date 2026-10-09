@@ -23,7 +23,7 @@
 
 ## 🌐 Live Demo
 
-### 🚀 **[Try TruthLens Now → imageclasifier.streamlit.app](https://imageclasifier-26nylzyg6d3qjjdoaspu49.streamlit.app/)**
+### 🚀 **[Try TruthLens Now → imageclasifier.streamlit.app]([https://imageclasifier-26nylzyg6d3qjjdoaspu49.streamlit.app/](https://truth-lens-cnn.streamlit.app/))**
 
 <p align="center">
   <i>Free • No Sign-up Required • Works on Any Device</i>
